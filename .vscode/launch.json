@@ -1,0 +1,23 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug",
+            "cargo": {
+                "args": [
+                    "build",
+                ],
+                "filter": {
+                    "kind": "bin"
+                }
+            },
+            "args": [
+                "127.0.0.1",
+                "8096"
+            ],
+            "cwd": "${workspaceFolder}"
+        }
+    ]
+}
