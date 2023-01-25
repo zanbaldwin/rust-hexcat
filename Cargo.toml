@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 termion = "2"
 error-stack = "0.2"
+thiserror = "1.0.38"
 
 [profile.release]
 opt-level = "z"
