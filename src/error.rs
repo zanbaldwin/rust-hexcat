@@ -1,30 +1,31 @@
-use error_stack::{Context};
 use std::fmt::Display;
+use thiserror::Error;
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum InitError {
     NotEnoughArguments,
     InvalidConnectionSettings,
     CouldNotConnect,
     NoTerminal,
+    Window,
+    Threads,
 }
-impl Context for InitError {}
 impl Display for InitError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str("App could not start.")
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum AppError {
     InitError,
+    ChannelBroken,
     CouldNotPaint,
     TerminalError,
     UserInput,
     StreamRead,
     StreamWrite,
 }
-impl Context for AppError {}
 impl Display for AppError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str("Something went wrong.")

@@ -1,16 +1,21 @@
 use crate::error::AppError;
+use error_stack::{IntoReport, Result, ResultExt};
 use std::io;
 use std::io::Write;
-use error_stack::{IntoReport, Result, ResultExt};
 use termion::color;
 use termion::event::Key;
 use termion::input::TermRead;
 use termion::raw::{IntoRawMode, RawTerminal};
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct Position {
     pub x: u16,
     pub y: u16,
+}
+#[derive(Default, Clone)]
+pub struct Size {
+    pub width: u16,
+    pub height: u16,
 }
 
 pub struct Terminal {
@@ -21,7 +26,8 @@ pub struct Terminal {
 impl Terminal {
     pub fn init() -> Result<Self, AppError> {
         Ok(Self {
-            _stdout: io::stdout().into_raw_mode()
+            _stdout: io::stdout()
+                .into_raw_mode()
                 .into_report()
                 .attach_printable("Could not enter RAW mode.")
                 .change_context(AppError::TerminalError)?,
@@ -47,10 +53,13 @@ impl Terminal {
 
     pub fn move_cursor(&mut self, x: u16, y: u16) {
         self.cursor = Position { x, y };
-        print!("{}", termion::cursor::Goto(
-            self.cursor.x.saturating_add(1),
-            self.cursor.y.saturating_add(1),
-        ));
+        print!(
+            "{}",
+            termion::cursor::Goto(
+                self.cursor.x.saturating_add(1),
+                self.cursor.y.saturating_add(1),
+            )
+        );
     }
 
     pub fn cursor_hide() {
@@ -62,14 +71,15 @@ impl Terminal {
     }
 
     pub fn flush() -> Result<(), AppError> {
-        io::stdout().flush()
+        io::stdout()
+            .flush()
             .into_report()
             .attach_printable("Could not flush display buffer to TTY.")
             .change_context(AppError::TerminalError)?;
         Ok(())
     }
 
-    pub fn read_key_nonblocking() -> Result<Option<Key>, AppError> {
+    pub fn read_key() -> Result<Option<Key>, AppError> {
         if let Some(key) = io::stdin().lock().keys().next() {
             match key {
                 Ok(key) => Ok(Some(key)),
@@ -80,17 +90,6 @@ impl Terminal {
             }
         } else {
             Ok(None)
-        }
-    }
-
-    pub fn read_key_blocking() -> Result<Key, AppError> {
-        loop {
-            if let Some(key) = io::stdin().lock().keys().next() {
-                return key
-                    .into_report()
-                    .attach_printable("Could not determine user input.")
-                    .change_context(AppError::UserInput);
-            }
         }
     }
 
@@ -108,5 +107,10 @@ impl Terminal {
 
     pub fn reset_fg_colour() {
         print!("{}", color::Fg(color::Reset));
+    }
+
+    pub fn reset_colour() {
+        Self::reset_bg_colour();
+        Self::reset_fg_colour();
     }
 }
