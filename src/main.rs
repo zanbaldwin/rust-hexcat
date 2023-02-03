@@ -22,15 +22,15 @@ const INITIAL_MESSAGE: &str =
     "Ctrl-C to Quit, Ctrl-H to enter Hex Mode, Ctrl-A to enter ASCII mode.";
 const BUFFER_SIZE: usize = 4_096;
 
-enum MessageOrigin {
+pub(crate) enum MessageOrigin {
     Local(TcpMessage),
     Remote(TcpMessage),
 }
 
-pub const THREAD_SLOW_DOWN: Duration = Duration::from_millis(100);
+pub(crate) const THREAD_SLOW_DOWN: Duration = Duration::from_millis(100);
 
 fn main() -> Result<ExitCode, AppError> {
-    let mut window = start_window()
+    let mut window: Window = start_window()
         .attach_printable("Could not start application due to initialization errors.")
         .change_context(AppError::InitError)?;
     window.run()?;
@@ -38,22 +38,19 @@ fn main() -> Result<ExitCode, AppError> {
     Ok(ExitCode::SUCCESS)
 }
 
-fn start_window<'a>() -> Result<Window<'a>, InitError> {
+fn start_window() -> Result<Window, InitError> {
     let terminal: Terminal = Terminal::init()
         .attach_printable("Could not initialize terminal.")
         .change_context(InitError::NoTerminal)?;
-    let connection = connect()?;
 
+    let connection = connect()?;
     let thread_connection = connection
         .try_clone()
         .into_report()
         .attach_printable("Could not clone connection for use in TCP thread.")
         .change_context(InitError::Threads)?;
-    let receiver = spawn_threads(thread_connection)
-        .attach_printable("Could not start communication threads.")
-        .change_context(InitError::Threads)?;
 
-    let window = Window::new(terminal, connection, receiver)
+    let window = Window::new(terminal, connection, spawn_threads(thread_connection))
         .attach_printable("Could not initialize terminal window.")
         .change_context(InitError::Window)?;
 
@@ -65,7 +62,7 @@ fn connect() -> Result<TcpStream, InitError> {
     if args.len() < 2 {
         Err(InitError::NotEnoughArguments)
             .into_report()
-            .attach_printable("You must supply at least 2 arguments (IP Address and Port).")?
+            .attach_printable("You must supply at least 2 arguments (IP Address and Port).")?;
     }
 
     let addr: IpAddr = args[1]
@@ -90,14 +87,11 @@ fn connect() -> Result<TcpStream, InitError> {
     Ok(stream)
 }
 
-fn spawn_threads(connection: TcpStream) -> Result<WindowReceiver, InitError> {
+fn spawn_threads(connection: TcpStream) -> WindowReceiver {
     let (message_sink, message_receiver) = mpsc::channel::<TcpMessage>();
     thread::spawn(move || sections::Messages::listen(connection, message_sink));
     let (input_sink, input_receiver) = mpsc::channel::<Key>();
     thread::spawn(move || sections::Input::listen(input_sink));
 
-    Ok(WindowReceiver {
-        message: message_receiver,
-        input: input_receiver,
-    })
+    WindowReceiver::new(message_receiver, input_receiver)
 }

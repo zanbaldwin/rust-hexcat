@@ -5,20 +5,33 @@ use error_stack::Result;
 pub type PaintOutput = Vec<Vec<char>>;
 
 pub trait Painter {
-    fn paint(&self, width: usize, height: usize) -> Result<PaintOutput, AppError>;
+    fn paint(&self, bounds: Size) -> Result<PaintOutput, AppError>;
 }
-pub struct Paintable<'a> {
+
+pub struct Paintable<'a, S, P>
+where
+    S: Fn(Size) -> Size,
+    P: Fn(Size) -> Position,
+{
     painter: &'a dyn Painter,
-    position: Position,
-    bounds: Size,
+    sizer: Box<S>,
+    positioner: Box<P>,
 }
-impl<'a> Paintable<'a> {
-    pub fn bounds(&self) -> Size {
-        self.bounds.clone()
+impl<'a, S, P> Paintable<'a, S, P>
+where
+    S: Fn(Size) -> Size,
+    P: Fn(Size) -> Position,
+{
+    pub fn size(&self, terminal_size: Size) -> Size {
+        (*self.sizer)(terminal_size)
     }
 }
-impl<'a> Painter for Paintable<'a> {
-    fn paint(&self, width: usize, height: usize) -> Result<PaintOutput, AppError> {
-        self.painter.paint(width, height)
+impl<'a, S, P> Painter for Paintable<'a, S, P>
+where
+    S: Fn(Size) -> Size,
+    P: Fn(Size) -> Position,
+{
+    fn paint(&self, bounds: Size) -> Result<PaintOutput, AppError> {
+        self.painter.paint(bounds)
     }
 }

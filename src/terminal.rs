@@ -2,20 +2,19 @@ use crate::error::AppError;
 use error_stack::{IntoReport, Result, ResultExt};
 use std::io;
 use std::io::Write;
-use termion::color;
 use termion::event::Key;
 use termion::input::TermRead;
 use termion::raw::{IntoRawMode, RawTerminal};
 
 #[derive(Default, Clone)]
 pub struct Position {
-    pub x: u16,
-    pub y: u16,
+    pub x: usize,
+    pub y: usize,
 }
 #[derive(Default, Clone)]
 pub struct Size {
-    pub width: u16,
-    pub height: u16,
+    pub width: usize,
+    pub height: usize,
 }
 
 pub struct Terminal {
@@ -35,12 +34,15 @@ impl Terminal {
         })
     }
 
-    pub fn size() -> Result<(u16, u16), AppError> {
-        let size = termion::terminal_size()
+    pub fn size() -> Result<Size, AppError> {
+        let (width, height) = termion::terminal_size()
             .into_report()
             .attach_printable("Could not determine terminal size.")
             .change_context(AppError::TerminalError)?;
-        Ok(size)
+        Ok(Size {
+            width: width as usize,
+            height: height as usize,
+        })
     }
 
     pub fn clear_screen() {
@@ -52,12 +54,15 @@ impl Terminal {
     }
 
     pub fn move_cursor(&mut self, x: u16, y: u16) {
-        self.cursor = Position { x, y };
+        self.cursor = Position {
+            x: x as usize,
+            y: y as usize,
+        };
         print!(
             "{}",
             termion::cursor::Goto(
-                self.cursor.x.saturating_add(1),
-                self.cursor.y.saturating_add(1),
+                self.cursor.x.saturating_add(1) as u16,
+                self.cursor.y.saturating_add(1) as u16,
             )
         );
     }
@@ -91,26 +96,5 @@ impl Terminal {
         } else {
             Ok(None)
         }
-    }
-
-    pub fn set_bg_colour(colour: color::Rgb) {
-        print!("{}", color::Bg(colour));
-    }
-
-    pub fn reset_bg_colour() {
-        print!("{}", color::Bg(color::Reset));
-    }
-
-    pub fn set_fg_colour(color: color::Rgb) {
-        print!("{}", color::Fg(color));
-    }
-
-    pub fn reset_fg_colour() {
-        print!("{}", color::Fg(color::Reset));
-    }
-
-    pub fn reset_colour() {
-        Self::reset_bg_colour();
-        Self::reset_fg_colour();
     }
 }
