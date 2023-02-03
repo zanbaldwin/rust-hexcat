@@ -96,9 +96,11 @@ impl Painter for Messages {
                 .collect::<Vec<String>>()
                 .join("");
             human_readable.truncate(width - lhs.len() - rhs.len());
-            format!("{lhs}{human_readable}{rhs}")
+            let mut line = format!("{lhs}{human_readable}{rhs}")
                 .chars()
-                .collect::<Vec<_>>()
+                .collect::<Vec<_>>();
+            line.resize(width, ' ');
+            line
         }
 
         let mut output: PaintOutput = self
