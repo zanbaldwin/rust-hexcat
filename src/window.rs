@@ -29,7 +29,6 @@ impl WindowReceiver {
 pub(crate) struct Window {
     terminal: Terminal,
     should_quit: bool,
-
     receiver: WindowReceiver,
     sections: Sections,
 }
@@ -87,10 +86,13 @@ impl Window {
             match self.receiver.input.try_recv() {
                 Ok(key) => {
                     match key {
-                        Key::Up | Key::Down | Key::PageUp | Key::PageDown => {
-                            self.sections.messages.scroll(key)
+                        Key::Ctrl('c') => {
+                            self.should_quit = true;
                         }
-                        Key::Ctrl('\n') => {
+                        Key::Up | Key::Down | Key::PageUp | Key::PageDown => {
+                            self.sections.messages.scroll(key);
+                        }
+                        Key::Char('\n') => {
                             if let Some(message) = self.sections.input.drain_user_message() {
                                 self.sections
                                     .messages
@@ -149,6 +151,11 @@ impl Window {
                 x: 0,
                 y: terminal_size.height - 3,
             },
+        );
+
+        self.terminal.move_cursor(
+            self.sections.input.get_cursor_x_position(),
+            (terminal_size.height - 2) as u16,
         );
 
         Terminal::cursor_show();

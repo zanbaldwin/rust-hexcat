@@ -6,6 +6,7 @@ use error_stack::{IntoReport, Result, ResultExt};
 use std::io::Write;
 use std::io::{ErrorKind, Read};
 use std::net::{SocketAddr, TcpStream};
+use std::num::ParseIntError;
 use std::sync::mpsc::Sender;
 use termion::event::Key;
 
@@ -60,7 +61,13 @@ impl Messages {
     }
 
     pub(crate) fn scroll(&mut self, key: Key) {
-        todo!()
+        match key {
+            Key::Up => todo!(),
+            Key::PageUp => todo!(),
+            Key::Down => todo!(),
+            Key::PageDown => todo!(),
+            _ => {}
+        };
     }
 
     pub(crate) fn listen(mut connection: TcpStream, sink: Sender<TcpMessage>) {
@@ -101,21 +108,24 @@ impl Painter for Messages {
             .take(size.height)
             .map(|origin| match origin {
                 MessageOrigin::Local(message) => {
-                    vec_to_line(size.width, "  LOCAL | ", message, " ")
+                    vec_to_line(size.width, "  LOCAL │ ", message, " ")
                 }
                 MessageOrigin::Remote(message) => {
-                    vec_to_line(size.width, " REMOTE | ", message, " ")
+                    vec_to_line(size.width, " REMOTE │ ", message, " ")
                 }
             })
             .collect::<Vec<_>>();
 
-        output.resize(size.height, vec![' '; size.width]);
+        let mut empty_line: Vec<char> = "        │".chars().collect();
+        empty_line.resize(size.width, ' ');
+        output.resize(size.height, empty_line);
         Ok(output)
     }
 }
 
 pub(crate) struct Input {
     input: Vec<char>,
+    prompt: String,
     scroll_offset: usize,
     cursor_position: usize,
 }
@@ -123,19 +133,50 @@ impl Input {
     pub(crate) fn new() -> Self {
         Self {
             input: Vec::new(),
+            prompt: " Input: │ ".to_string(),
             scroll_offset: 0,
             cursor_position: 0,
         }
     }
 
     pub(crate) fn drain_user_message(&mut self) -> Option<TcpMessage> {
-        todo!()
+        let input = self
+            .input
+            .clone()
+            .into_iter()
+            .filter(|c| c.is_ascii_hexdigit())
+            .collect::<Vec<char>>();
+        if input.len() % 2 != 0 {
+            return None;
+        }
+
+        let hex = input
+            .chunks(2)
+            .map(|double_hex_chars| double_hex_chars.iter().collect::<String>())
+            .filter_map(|hex_string| u8::from_str_radix(&hex_string, 16).ok())
+            .collect::<Vec<_>>();
+        self.input.truncate(0);
+        self.cursor_position = 0;
+        self.scroll_offset = 0;
+        Some(hex)
     }
 
     pub(crate) fn handle_key(&mut self, key: Key) {
         match key {
-            Key::Left | Key::Right | Key::Home | Key::End => todo!(),
-            Key::Char(c) => todo!(),
+            Key::Left | Key::Right | Key::End => todo!(),
+            Key::Home => {
+                self.cursor_position = 0;
+                self.scroll_offset = 0;
+            }
+            Key::Char(c) => {
+                if c.is_ascii_hexdigit() {
+                    self.input.push(c);
+                    self.cursor_position += 1;
+                } else if c.is_whitespace() {
+                    self.input.push(' ');
+                    self.cursor_position += 1;
+                }
+            }
             Key::Delete => todo!(),
             Key::Backspace => todo!(),
             _ => (),
@@ -152,6 +193,10 @@ impl Input {
             }
         }
     }
+
+    pub(crate) fn get_cursor_x_position(&self) -> u16 {
+        (self.prompt.len() + self.cursor_position - 2) as u16
+    }
 }
 impl Painter for Input {
     fn paint(&self, size: Size) -> Result<PaintOutput, AppError> {
@@ -161,14 +206,13 @@ impl Painter for Input {
         divider.resize(size.width, '─');
         output.push(divider);
 
-        let prompt = " Input: │ ";
-        let max_input_length: usize = size.width - prompt.len() - 1;
+        let max_input_length: usize = size.width - self.prompt.len() - 1;
         let mut input = self.input.clone();
         input.drain(0..self.scroll_offset);
         input.resize(max_input_length, ' ');
 
         let mut line: Vec<char> = Vec::new();
-        line.extend(prompt.chars());
+        line.extend(self.prompt.chars());
         line.extend(input);
         output.push(line);
 
