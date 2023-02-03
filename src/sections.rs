@@ -108,6 +108,7 @@ impl Painter for Messages {
             .iter()
             .rev()
             .take(size.height)
+            .rev()
             .map(|origin| match origin {
                 MessageOrigin::Local(message) => {
                     vec_to_line(size.width, "  LOCAL │ ", message, " ")
@@ -171,11 +172,8 @@ impl Input {
                 self.scroll_offset = 0;
             }
             Key::Char(c) => {
-                if c.is_ascii_hexdigit() {
+                if c.is_ascii_hexdigit() || c == ' ' {
                     self.input.push(c);
-                    self.cursor_position += 1;
-                } else if c.is_whitespace() {
-                    self.input.push(' ');
                     self.cursor_position += 1;
                 }
             }
