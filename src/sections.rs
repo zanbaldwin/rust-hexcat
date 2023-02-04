@@ -3,10 +3,10 @@ use crate::paint::{PaintOutput, Painter};
 use crate::terminal::{Size, Terminal};
 use crate::{MessageOrigin, TcpMessage, BUFFER_SIZE};
 use error_stack::{IntoReport, Result, ResultExt};
+use std::cmp::min;
 use std::io::Write;
 use std::io::{ErrorKind, Read};
 use std::net::{SocketAddr, TcpStream};
-use std::num::ParseIntError;
 use std::sync::mpsc::Sender;
 use termion::event::Key;
 
@@ -20,7 +20,7 @@ impl Title {
 }
 impl Painter for Title {
     fn paint(&self, size: Size) -> Result<PaintOutput, AppError> {
-        let mut output: PaintOutput = Vec::with_capacity(size.height as usize);
+        let mut output: PaintOutput = Vec::with_capacity(size.height);
 
         let mut title: Vec<char> = format!(
             "HexCat. Connected to {} (on port {}).",
@@ -60,16 +60,6 @@ impl Messages {
         self.messages.push(message);
     }
 
-    pub(crate) fn scroll(&mut self, key: Key) {
-        match key {
-            Key::Up => todo!(),
-            Key::PageUp => todo!(),
-            Key::Down => todo!(),
-            Key::PageDown => todo!(),
-            _ => {}
-        };
-    }
-
     pub(crate) fn listen(mut connection: TcpStream, sink: Sender<TcpMessage>) {
         let mut buffer = [0u8; BUFFER_SIZE];
         let mut message: Vec<u8> = vec![];
@@ -89,12 +79,11 @@ impl Messages {
 }
 impl Painter for Messages {
     fn paint(&self, size: Size) -> Result<PaintOutput, AppError> {
-        fn vec_to_line(width: usize, lhs: &str, message: &Vec<u8>, rhs: &str) -> Vec<char> {
+        fn vec_to_line(width: usize, lhs: &str, message: &[u8], rhs: &str) -> Vec<char> {
             let mut human_readable: String = message
                 .iter()
                 .map(|byte| format!("{byte:02x} "))
-                .collect::<Vec<String>>()
-                .join("");
+                .collect::<String>();
             human_readable.truncate(width - lhs.len() - rhs.len());
             let mut line = format!("{lhs}{human_readable}{rhs}")
                 .chars()
@@ -129,16 +118,12 @@ impl Painter for Messages {
 pub(crate) struct Input {
     input: Vec<char>,
     prompt: String,
-    scroll_offset: usize,
-    cursor_position: usize,
 }
 impl Input {
     pub(crate) fn new() -> Self {
         Self {
             input: Vec::new(),
             prompt: " Input: │ ".to_string(),
-            scroll_offset: 0,
-            cursor_position: 0,
         }
     }
 
@@ -147,7 +132,7 @@ impl Input {
             .input
             .clone()
             .into_iter()
-            .filter(|c| c.is_ascii_hexdigit())
+            .filter(char::is_ascii_hexdigit)
             .collect::<Vec<char>>();
         if input.len() % 2 != 0 {
             return None;
@@ -159,28 +144,25 @@ impl Input {
             .filter_map(|hex_string| u8::from_str_radix(&hex_string, 16).ok())
             .collect::<Vec<_>>();
         self.input.truncate(0);
-        self.cursor_position = 0;
-        self.scroll_offset = 0;
         Some(hex)
     }
 
-    pub(crate) fn handle_key(&mut self, key: Key) {
+    pub(crate) fn handle_key(&mut self, key: Key) -> bool {
         match key {
-            Key::Left | Key::Right | Key::End => todo!(),
-            Key::Home => {
-                self.cursor_position = 0;
-                self.scroll_offset = 0;
-            }
             Key::Char(c) => {
                 if c.is_ascii_hexdigit() || c == ' ' {
                     self.input.push(c);
-                    self.cursor_position += 1;
+                    return true;
                 }
             }
-            Key::Delete => todo!(),
-            Key::Backspace => todo!(),
+            Key::Backspace => {
+                if self.input.pop().is_some() {
+                    return true;
+                }
+            }
             _ => (),
         }
+        false
     }
 
     pub(crate) fn listen(sink: Sender<Key>) -> Result<(), AppError> {
@@ -194,8 +176,9 @@ impl Input {
         }
     }
 
-    pub(crate) fn get_cursor_x_position(&self) -> u16 {
-        (self.prompt.len() + self.cursor_position - 2) as u16
+    pub(crate) fn get_cursor_x_position(&self, terminal_width: usize) -> u16 {
+        let max_input_width = terminal_width - self.prompt.len() - 1;
+        (self.prompt.len() + min(self.input.len(), max_input_width) - 2) as u16
     }
 }
 impl Painter for Input {
@@ -207,9 +190,14 @@ impl Painter for Input {
         output.push(divider);
 
         let max_input_length: usize = size.width - self.prompt.len() - 1;
-        let mut input = self.input.clone();
-        input.drain(0..self.scroll_offset);
-        input.resize(max_input_length, ' ');
+        let mut input = self
+            .input
+            .iter()
+            .rev()
+            .take(max_input_length)
+            .rev()
+            .collect::<Vec<_>>();
+        input.resize(max_input_length, &' ');
 
         let mut line: Vec<char> = Vec::new();
         line.extend(self.prompt.chars());

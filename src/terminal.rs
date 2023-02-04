@@ -6,12 +6,12 @@ use termion::event::Key;
 use termion::input::TermRead;
 use termion::raw::{IntoRawMode, RawTerminal};
 
-#[derive(Default, Clone)]
+#[derive(Default, Clone, Copy)]
 pub struct Position {
     pub x: usize,
     pub y: usize,
 }
-#[derive(Default, Clone)]
+#[derive(Default, Clone, Copy)]
 pub struct Size {
     pub width: usize,
     pub height: usize,
@@ -47,10 +47,6 @@ impl Terminal {
 
     pub fn clear_screen() {
         print!("{}", termion::clear::All);
-    }
-
-    pub fn clear_current_line() {
-        print!("{}", termion::clear::CurrentLine);
     }
 
     pub fn move_cursor(&mut self, x: u16, y: u16) {

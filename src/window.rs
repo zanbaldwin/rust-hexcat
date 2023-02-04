@@ -89,19 +89,16 @@ impl Window {
                         Key::Ctrl('c') => {
                             self.should_quit = true;
                         }
-                        Key::Up | Key::Down | Key::PageUp | Key::PageDown => {
-                            self.sections.messages.scroll(key);
-                        }
                         Key::Char('\n') => {
                             if let Some(message) = self.sections.input.drain_user_message() {
                                 self.sections
                                     .messages
                                     .handle_message(MessageOrigin::Local(message));
+                                should_draw = true;
                             }
                         }
-                        _ => self.sections.input.handle_key(key),
+                        _ => should_draw = self.sections.input.handle_key(key),
                     };
-                    should_draw = true;
                 }
                 Err(err) if err == TryRecvError::Empty => (),
                 Err(err) => Err(err)
@@ -127,7 +124,7 @@ impl Window {
         let terminal_size: Size = Terminal::size()?;
 
         self.print(
-            self.sections.title.paint(Size {
+            &self.sections.title.paint(Size {
                 width: terminal_size.width,
                 height: 2,
             })?,
@@ -135,7 +132,7 @@ impl Window {
         );
 
         self.print(
-            self.sections.messages.paint(Size {
+            &self.sections.messages.paint(Size {
                 width: terminal_size.width,
                 height: terminal_size.height - 4,
             })?,
@@ -143,7 +140,7 @@ impl Window {
         );
 
         self.print(
-            self.sections.input.paint(Size {
+            &self.sections.input.paint(Size {
                 width: terminal_size.width,
                 height: 2,
             })?,
@@ -154,7 +151,9 @@ impl Window {
         );
 
         self.terminal.move_cursor(
-            self.sections.input.get_cursor_x_position(),
+            self.sections
+                .input
+                .get_cursor_x_position(terminal_size.width),
             (terminal_size.height - 2) as u16,
         );
 
@@ -163,7 +162,7 @@ impl Window {
         Ok(())
     }
 
-    fn print(&mut self, content: Vec<Vec<char>>, position: Position) {
+    fn print(&mut self, content: &[Vec<char>], position: Position) {
         content.iter().enumerate().for_each(|(index, line)| {
             self.terminal
                 .move_cursor(position.x as u16, (position.y + index) as u16);

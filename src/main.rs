@@ -1,4 +1,3 @@
-#![warn(clippy::all, clippy::pedantic)]
 mod error;
 mod paint;
 mod sections;
@@ -18,8 +17,6 @@ use termion::event::Key;
 
 type TcpMessage = Vec<u8>;
 
-const INITIAL_MESSAGE: &str =
-    "Ctrl-C to Quit, Ctrl-H to enter Hex Mode, Ctrl-A to enter ASCII mode.";
 const BUFFER_SIZE: usize = 4_096;
 
 pub(crate) enum MessageOrigin {
@@ -27,7 +24,8 @@ pub(crate) enum MessageOrigin {
     Remote(TcpMessage),
 }
 
-pub(crate) const THREAD_SLOW_DOWN: Duration = Duration::from_millis(100);
+// Don't hog an entire CPU core at 100% in the infinite loop. Chill out for a little bit each iteration.
+pub(crate) const THREAD_SLOW_DOWN: Duration = Duration::from_millis(5);
 
 fn main() -> Result<ExitCode, AppError> {
     let mut window: Window = start_window()

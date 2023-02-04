@@ -20,11 +20,9 @@ impl Display for InitError {
 pub enum AppError {
     InitError,
     ChannelBroken,
-    CouldNotPaint,
     TerminalError,
     UserInput,
     StreamRead,
-    StreamWrite,
 }
 impl Display for AppError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
