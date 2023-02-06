@@ -25,7 +25,7 @@ pub(crate) enum MessageOrigin {
 }
 
 // Don't hog an entire CPU core at 100% in the infinite loop. Chill out for a little bit each iteration.
-pub(crate) const THREAD_SLOW_DOWN: Duration = Duration::from_millis(5);
+pub(crate) const THREAD_SLOW_DOWN: Duration = Duration::from_millis(1);
 
 fn main() -> Result<ExitCode, AppError> {
     let mut window: Window = start_window()

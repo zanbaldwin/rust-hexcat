@@ -63,6 +63,7 @@ impl Window {
         Terminal::clear_screen();
 
         let mut should_draw = true;
+        let mut current_terminal_size = Terminal::size()?;
 
         'main: loop {
             if self.should_quit {
@@ -107,8 +108,14 @@ impl Window {
                     .change_context(AppError::ChannelBroken)?,
             }
 
+            let new_terminal_size = Terminal::size()?;
+            if current_terminal_size != new_terminal_size {
+                should_draw = true;
+                current_terminal_size = new_terminal_size;
+            }
+
             if should_draw {
-                self.draw()?;
+                self.draw(&current_terminal_size)?;
                 should_draw = false;
             }
             thread::sleep(THREAD_SLOW_DOWN);
@@ -119,9 +126,8 @@ impl Window {
         Ok(())
     }
 
-    fn draw(&mut self) -> Result<(), AppError> {
+    fn draw(&mut self, terminal_size: &Size) -> Result<(), AppError> {
         Terminal::cursor_hide();
-        let terminal_size: Size = Terminal::size()?;
 
         self.print(
             &self.sections.title.paint(Size {
@@ -134,7 +140,7 @@ impl Window {
         self.print(
             &self.sections.messages.paint(Size {
                 width: terminal_size.width,
-                height: terminal_size.height - 4,
+                height: terminal_size.height - 3,
             })?,
             Position { x: 0, y: 2 },
         );
@@ -146,7 +152,7 @@ impl Window {
             })?,
             Position {
                 x: 0,
-                y: terminal_size.height - 3,
+                y: terminal_size.height - 2,
             },
         );
 
@@ -154,7 +160,7 @@ impl Window {
             self.sections
                 .input
                 .get_cursor_x_position(terminal_size.width),
-            (terminal_size.height - 2) as u16,
+            (terminal_size.height - 1) as u16,
         );
 
         Terminal::cursor_show();

@@ -96,7 +96,7 @@ impl Painter for Messages {
             .messages
             .iter()
             .rev()
-            .take(size.height)
+            .take(size.height - 1)
             .rev()
             .map(|origin| match origin {
                 MessageOrigin::Local(message) => {
